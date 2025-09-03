@@ -1,1 +1,4 @@
 project_id = "rdhebrxkhcewzehfbcar"
+
+[functions.tracking-scheduler]
+verify_jwt = false
