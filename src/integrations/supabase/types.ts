@@ -17,6 +17,7 @@ export type Database = {
       api_requests: {
         Row: {
           created_at: string
+          data_used: number | null
           error_message: string | null
           id: string
           ip_address: unknown | null
@@ -30,6 +31,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          data_used?: number | null
           error_message?: string | null
           id?: string
           ip_address?: unknown | null
@@ -43,6 +45,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          data_used?: number | null
           error_message?: string | null
           id?: string
           ip_address?: unknown | null
@@ -63,6 +66,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      data_usage_settings: {
+        Row: {
+          created_at: string
+          id: string
+          settings: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          settings?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          settings?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       position_history: {
         Row: {
@@ -107,6 +134,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      proxy_configurations: {
+        Row: {
+          configuration: Json
+          created_at: string
+          id: string
+          last_test_result: Json | null
+          metrics: Json | null
+          provider_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          configuration?: Json
+          created_at?: string
+          id?: string
+          last_test_result?: Json | null
+          metrics?: Json | null
+          provider_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          configuration?: Json
+          created_at?: string
+          id?: string
+          last_test_result?: Json | null
+          metrics?: Json | null
+          provider_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       tracking_jobs: {
         Row: {

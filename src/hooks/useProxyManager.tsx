@@ -76,16 +76,16 @@ export const useProxyManager = () => {
 
   const loadProxyConfigurations = async () => {
     try {
-      const { data, error } = await supabase
-        .from('proxy_configurations')
-        .select('*')
-        .eq('user_id', user?.id);
+      // Use edge function instead of RPC
+      const { data, error } = await supabase.functions.invoke('proxy-helper-functions', {
+        body: { type: 'get_proxy_configurations', p_user_id: user?.id }
+      });
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
+      if (data && data.data && data.data.length > 0) {
         const updatedProviders = { ...proxyProviders };
-        data.forEach((config: any) => {
+        data.data.forEach((config: any) => {
           if (updatedProviders[config.provider_id]) {
             updatedProviders[config.provider_id] = {
               ...updatedProviders[config.provider_id],
@@ -116,22 +116,22 @@ export const useProxyManager = () => {
         },
       }));
 
-      // Save to Supabase
-      const { error } = await supabase
-        .from('proxy_configurations')
-        .upsert({
-          user_id: user.id,
-          provider_id: providerId,
-          configuration: {
+      // Save to Supabase using edge function
+      const { error } = await supabase.functions.invoke('proxy-helper-functions', {
+        body: {
+          type: 'upsert_proxy_configuration',
+          p_user_id: user.id,
+          p_provider_id: providerId,
+          p_configuration: {
             endpoint: config.endpoint,
             username: config.username,
             password: config.password,
             port: config.port,
             zones: config.zones,
             enabled: config.enabled,
-          },
-          updated_at: new Date().toISOString(),
-        });
+          }
+        }
+      });
 
       if (error) throw error;
 
@@ -199,14 +199,14 @@ export const useProxyManager = () => {
 
       // Save test result to database
       if (user) {
-        await supabase
-          .from('proxy_configurations')
-          .update({
-            last_test_result: testResult,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', user.id)
-          .eq('provider_id', providerId);
+        await supabase.functions.invoke('proxy-helper-functions', {
+          body: {
+            type: 'update_proxy_test_result',
+            p_user_id: user.id,
+            p_provider_id: providerId,
+            p_test_result: testResult
+          }
+        });
       }
 
       return testResult;

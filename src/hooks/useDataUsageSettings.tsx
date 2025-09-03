@@ -76,16 +76,15 @@ export const useDataUsageSettings = () => {
 
   const loadSettings = async () => {
     try {
-      const { data, error } = await supabase
-        .from('data_usage_settings')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
+      // Use edge function instead of RPC
+      const { data, error } = await supabase.functions.invoke('proxy-helper-functions', {
+        body: { type: 'get_data_usage_settings', p_user_id: user?.id }
+      });
 
       if (error && error.code !== 'PGRST116') throw error;
 
-      if (data) {
-        setSettings(data.settings);
+      if (data && data.data && data.data.length > 0) {
+        setSettings(data.data[0].settings);
       }
     } catch (error) {
       console.error('Error loading data usage settings:', error);
@@ -94,54 +93,21 @@ export const useDataUsageSettings = () => {
 
   const loadUsageData = async () => {
     try {
-      // Get usage data from API requests table
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-      const { data: requests, error } = await supabase
-        .from('api_requests')
-        .select('created_at, data_used, marketplace')
-        .eq('user_id', user?.id)
-        .gte('created_at', monthAgo.toISOString());
+      // Get usage data from API requests table using edge function
+      const { data: requests, error } = await supabase.functions.invoke('proxy-helper-functions', {
+        body: { type: 'get_data_usage_stats', p_user_id: user?.id }
+      });
 
       if (error) throw error;
 
-      if (requests) {
-        const todayUsage = requests
-          .filter(r => new Date(r.created_at) >= today)
-          .reduce((sum, r) => sum + (r.data_used || 0), 0);
-
-        const weekUsage = requests
-          .filter(r => new Date(r.created_at) >= weekAgo)
-          .reduce((sum, r) => sum + (r.data_used || 0), 0);
-
-        const monthUsage = requests
-          .reduce((sum, r) => sum + (r.data_used || 0), 0);
-
-        const byProvider = requests.reduce((acc: any, r) => {
-          const provider = r.marketplace || 'unknown';
-          if (!acc[provider]) {
-            acc[provider] = { usage: 0, requests: 0 };
-          }
-          acc[provider].usage += r.data_used || 0;
-          acc[provider].requests += 1;
-          return acc;
-        }, {});
-
+      if (requests && requests.data && requests.data.length > 0) {
+        const stats = requests.data[0];
         setUsage({
-          today: Math.round(todayUsage / 1024 / 1024), // Convert to MB
-          week: Math.round(weekUsage / 1024 / 1024),
-          month: Math.round(monthUsage / 1024 / 1024),
-          total: Math.round(monthUsage / 1024 / 1024),
-          byProvider: Object.entries(byProvider).reduce((acc: any, [key, value]: [string, any]) => {
-            acc[key] = {
-              usage: Math.round(value.usage / 1024 / 1024),
-              requests: value.requests,
-            };
-            return acc;
-          }, {}),
+          today: Math.round((stats.today_usage || 0) / 1024 / 1024), // Convert to MB
+          week: Math.round((stats.week_usage || 0) / 1024 / 1024),
+          month: Math.round((stats.month_usage || 0) / 1024 / 1024),
+          total: Math.round((stats.total_usage || 0) / 1024 / 1024),
+          byProvider: stats.by_provider || {},
         });
       }
     } catch (error) {
@@ -157,13 +123,13 @@ export const useDataUsageSettings = () => {
       const updatedSettings = { ...settings, ...newSettings };
       setSettings(updatedSettings);
 
-      const { error } = await supabase
-        .from('data_usage_settings')
-        .upsert({
-          user_id: user.id,
-          settings: updatedSettings,
-          updated_at: new Date().toISOString(),
-        });
+      const { error } = await supabase.functions.invoke('proxy-helper-functions', {
+        body: {
+          type: 'upsert_data_usage_settings',
+          p_user_id: user.id,
+          p_settings: updatedSettings
+        }
+      });
 
       if (error) throw error;
 

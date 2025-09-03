@@ -9,7 +9,8 @@ import { ErrorBoundary } from '../components/ui/error-boundary';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, Target, TrendingUp, Settings, LogOut } from 'lucide-react';
+import { BarChart3, Target, TrendingUp, Settings, LogOut, Cog } from 'lucide-react';
+import { SettingsPage } from '../components/SettingsPage';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -41,7 +42,7 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
+          <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
             <TabsTrigger value="dashboard" className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4" />
               <span>Dashboard</span>
@@ -57,6 +58,10 @@ const Index = () => {
             <TabsTrigger value="reports" className="flex items-center space-x-2">
               <TrendingUp className="h-4 w-4" />
               <span>Reports</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center space-x-2">
+              <Cog className="h-4 w-4" />
+              <span>Settings</span>
             </TabsTrigger>
           </TabsList>
 
@@ -112,6 +117,12 @@ const Index = () => {
                 </ErrorBoundary>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
+            <ErrorBoundary>
+              <SettingsPage />
+            </ErrorBoundary>
           </TabsContent>
         </Tabs>
       </div>
