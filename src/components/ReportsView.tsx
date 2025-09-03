@@ -4,35 +4,86 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
-import { Download, FileText, TrendingUp, Calendar } from "lucide-react";
-import { useState } from "react";
-
-// Mock data for charts
-const positionData = [
-  { date: '2024-01-10', organic: 25, sponsored: 8 },
-  { date: '2024-01-11', organic: 22, sponsored: 6 },
-  { date: '2024-01-12', organic: 18, sponsored: 5 },
-  { date: '2024-01-13', organic: 15, sponsored: 3 },
-  { date: '2024-01-14', organic: 12, sponsored: 4 },
-  { date: '2024-01-15', organic: 15, sponsored: 3 },
-];
-
-const keywordPerformance = [
-  { keyword: 'wireless headphones', organic: 15, sponsored: 3, clicks: 245 },
-  { keyword: 'bluetooth earbuds', organic: null, sponsored: 8, clicks: 156 },
-  { keyword: 'noise cancelling', organic: 42, sponsored: null, clicks: 89 },
-  { keyword: 'wireless earphones', organic: 28, sponsored: 12, clicks: 178 },
-];
+import { Download, FileText, TrendingUp, Calendar, Loader2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useKeywordRankings, usePositionHistory } from '@/hooks/usePositionHistory';
+import { useTrackingJobs } from '@/hooks/useTrackingJobs';
+import { format } from 'date-fns';
 
 export const ReportsView = () => {
   const [reportType, setReportType] = useState('combined');
   const [timeframe, setTimeframe] = useState('7d');
   const [selectedAsin, setSelectedAsin] = useState('all');
+  
+  const { data: rankings, isLoading: rankingsLoading } = useKeywordRankings();
+  const { data: positionHistory, isLoading: historyLoading } = usePositionHistory();
+  const { trackingJobs } = useTrackingJobs();
+
+  const asins = useMemo(() => {
+    if (!trackingJobs) return [];
+    return [...new Set(trackingJobs.map(job => job.asin))];
+  }, [trackingJobs]);
+
+  const chartData = useMemo(() => {
+    if (!positionHistory) return [];
+    
+    const grouped = positionHistory.reduce((acc, item) => {
+      const date = format(new Date(item.tracked_at), 'yyyy-MM-dd');
+      if (!acc[date]) {
+        acc[date] = { date, organic: [], sponsored: [] };
+      }
+      if (item.organic_position) acc[date].organic.push(item.organic_position);
+      if (item.sponsored_position) acc[date].sponsored.push(item.sponsored_position);
+      return acc;
+    }, {} as Record<string, any>);
+
+    return Object.values(grouped).map((item: any) => ({
+      date: item.date,
+      organic: item.organic.length > 0 ? Math.round(item.organic.reduce((a: number, b: number) => a + b, 0) / item.organic.length) : null,
+      sponsored: item.sponsored.length > 0 ? Math.round(item.sponsored.reduce((a: number, b: number) => a + b, 0) / item.sponsored.length) : null,
+    })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(-30);
+  }, [positionHistory]);
+
+  const keywordPerformance = useMemo(() => {
+    if (!rankings) return [];
+    
+    return rankings.map(ranking => ({
+      keyword: ranking.keyword,
+      organic: ranking.organicPosition,
+      sponsored: ranking.sponsoredPosition,
+      asin: ranking.asin,
+      trend: ranking.trend,
+    }));
+  }, [rankings]);
+
+  const stats = useMemo(() => {
+    if (!rankings) return { bestOrganic: null, bestSponsored: null, totalKeywords: 0 };
+    
+    const organicPositions = rankings.filter(r => r.organicPosition).map(r => r.organicPosition!);
+    const sponsoredPositions = rankings.filter(r => r.sponsoredPosition).map(r => r.sponsoredPosition!);
+    
+    return {
+      bestOrganic: organicPositions.length > 0 ? Math.min(...organicPositions) : null,
+      bestSponsored: sponsoredPositions.length > 0 ? Math.min(...sponsoredPositions) : null,
+      totalKeywords: rankings.length,
+    };
+  }, [rankings]);
+
+  const isLoading = rankingsLoading || historyLoading;
 
   const exportReport = (format: string) => {
     // This would need backend implementation
     console.log(`Exporting ${reportType} report in ${format} format for ${timeframe}`);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading reports...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -86,7 +137,9 @@ export const ReportsView = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All ASINs</SelectItem>
-                  <SelectItem value="B08N5WRWNW">B08N5WRWNW</SelectItem>
+                  {asins.map(asin => (
+                    <SelectItem key={asin} value={asin}>{asin}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -125,7 +178,7 @@ export const ReportsView = () => {
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={positionData}>
+                  <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis reversed domain={[1, 50]} />
@@ -166,8 +219,8 @@ export const ReportsView = () => {
                       <th className="text-left p-2">Keyword</th>
                       <th className="text-center p-2">Organic Position</th>
                       <th className="text-center p-2">Sponsored Position</th>
-                      <th className="text-center p-2">Est. Clicks</th>
-                      <th className="text-center p-2">Performance</th>
+                      <th className="text-center p-2">ASIN</th>
+                      <th className="text-center p-2">Trend</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -188,10 +241,12 @@ export const ReportsView = () => {
                             <span className="text-muted-foreground">-</span>
                           )}
                         </td>
-                        <td className="text-center p-2">{item.clicks}</td>
+                        <td className="text-center p-2 font-mono text-sm">{item.asin}</td>
                         <td className="text-center p-2">
-                          {item.organic && item.organic <= 20 ? (
+                          {item.trend === 'up' ? (
                             <TrendingUp className="h-4 w-4 text-success mx-auto" />
+                          ) : item.trend === 'down' ? (
+                            <TrendingUp className="h-4 w-4 text-destructive mx-auto rotate-180" />
                           ) : (
                             <span className="text-muted-foreground">-</span>
                           )}
@@ -216,7 +271,7 @@ export const ReportsView = () => {
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={positionData}>
+                  <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis reversed domain={[1, 50]} />
@@ -246,7 +301,7 @@ export const ReportsView = () => {
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={positionData}>
+                  <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
@@ -271,7 +326,9 @@ export const ReportsView = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Best Organic Rank</p>
-                <p className="text-2xl font-bold">#12</p>
+                <p className="text-2xl font-bold">
+                  {stats.bestOrganic ? `#${stats.bestOrganic}` : '-'}
+                </p>
               </div>
               <TrendingUp className="h-8 w-8 text-success" />
             </div>
@@ -283,7 +340,9 @@ export const ReportsView = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Best Sponsored Rank</p>
-                <p className="text-2xl font-bold">#3</p>
+                <p className="text-2xl font-bold">
+                  {stats.bestSponsored ? `#${stats.bestSponsored}` : '-'}
+                </p>
               </div>
               <TrendingUp className="h-8 w-8 text-primary" />
             </div>
@@ -294,8 +353,8 @@ export const ReportsView = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Report Period</p>
-                <p className="text-lg font-semibold">7 Days</p>
+                <p className="text-sm text-muted-foreground">Total Keywords</p>
+                <p className="text-lg font-semibold">{stats.totalKeywords}</p>
               </div>
               <Calendar className="h-8 w-8 text-info" />
             </div>
