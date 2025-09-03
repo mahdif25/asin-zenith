@@ -13,9 +13,11 @@ import {
   Minus,
   Clock,
   Target,
-  Search
+  Search,
+  BarChart3
 } from "lucide-react";
 import { useState } from "react";
+import { KeywordHistoryView } from "./KeywordHistoryView";
 
 interface KeywordRanking {
   id: string;
@@ -69,6 +71,16 @@ const mockRankings: KeywordRanking[] = [
 export const TrackingResults = () => {
   const [filter, setFilter] = useState('all');
   const [rankings] = useState<KeywordRanking[]>(mockRankings);
+  const [selectedKeywordId, setSelectedKeywordId] = useState<string | null>(null);
+
+  if (selectedKeywordId) {
+    return (
+      <KeywordHistoryView 
+        keywordId={selectedKeywordId} 
+        onBack={() => setSelectedKeywordId(null)} 
+      />
+    );
+  }
   
   const filteredRankings = rankings.filter(ranking => {
     if (filter === 'organic') return ranking.organicPosition !== null;
@@ -210,12 +222,13 @@ export const TrackingResults = () => {
                   <TableHead className="text-center">Trend</TableHead>
                   <TableHead>Last Checked</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRankings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <div className="flex flex-col items-center gap-2">
                         <Search className="h-8 w-8 text-muted-foreground" />
                         <p className="text-muted-foreground">No tracking data available</p>
@@ -253,6 +266,16 @@ export const TrackingResults = () => {
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(ranking.status)}
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedKeywordId(ranking.id)}
+                        >
+                          <BarChart3 className="h-4 w-4 mr-1" />
+                          View History
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
