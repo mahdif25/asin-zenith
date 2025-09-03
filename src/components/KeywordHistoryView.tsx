@@ -1,113 +1,102 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
-import { 
-  ArrowLeft, 
-  TrendingUp, 
-  TrendingDown, 
-  Calendar,
-  Target,
-  Award,
-  BarChart3,
-  Download,
-  Zap,
-  Clock
-} from "lucide-react";
-import { useState } from "react";
-
-interface KeywordHistoryData {
-  date: string;
-  organicPosition: number | null;
-  sponsoredPosition: number | null;
-  timestamp: string;
-}
-
-interface KeywordDetails {
-  keyword: string;
-  asin: string;
-  marketplace: string;
-  currentOrganic: number | null;
-  currentSponsored: number | null;
-  bestOrganic: number | null;
-  bestSponsored: number | null;
-  worstOrganic: number | null;
-  worstSponsored: number | null;
-  averageOrganic: number | null;
-  averageSponsored: number | null;
-  trackingStarted: string;
-  totalChecks: number;
-}
-
-// Mock historical data
-const mockHistoryData: KeywordHistoryData[] = [
-  { date: '2024-01-01', organicPosition: 25, sponsoredPosition: 8, timestamp: '2024-01-01T10:00:00Z' },
-  { date: '2024-01-02', organicPosition: 22, sponsoredPosition: 6, timestamp: '2024-01-02T10:00:00Z' },
-  { date: '2024-01-03', organicPosition: 28, sponsoredPosition: 7, timestamp: '2024-01-03T10:00:00Z' },
-  { date: '2024-01-04', organicPosition: 18, sponsoredPosition: 5, timestamp: '2024-01-04T10:00:00Z' },
-  { date: '2024-01-05', organicPosition: 15, sponsoredPosition: 3, timestamp: '2024-01-05T10:00:00Z' },
-  { date: '2024-01-06', organicPosition: 12, sponsoredPosition: 4, timestamp: '2024-01-06T10:00:00Z' },
-  { date: '2024-01-07', organicPosition: 15, sponsoredPosition: 3, timestamp: '2024-01-07T10:00:00Z' },
-  { date: '2024-01-08', organicPosition: 13, sponsoredPosition: 2, timestamp: '2024-01-08T10:00:00Z' },
-  { date: '2024-01-09', organicPosition: 16, sponsoredPosition: 4, timestamp: '2024-01-09T10:00:00Z' },
-  { date: '2024-01-10', organicPosition: 14, sponsoredPosition: 3, timestamp: '2024-01-10T10:00:00Z' },
-  { date: '2024-01-11', organicPosition: 11, sponsoredPosition: 2, timestamp: '2024-01-11T10:00:00Z' },
-  { date: '2024-01-12', organicPosition: 18, sponsoredPosition: 5, timestamp: '2024-01-12T10:00:00Z' },
-  { date: '2024-01-13', organicPosition: 15, sponsoredPosition: 3, timestamp: '2024-01-13T10:00:00Z' },
-  { date: '2024-01-14', organicPosition: 12, sponsoredPosition: 4, timestamp: '2024-01-14T10:00:00Z' },
-  { date: '2024-01-15', organicPosition: 15, sponsoredPosition: 3, timestamp: '2024-01-15T10:00:00Z' },
-];
-
-const mockKeywordDetails: KeywordDetails = {
-  keyword: 'wireless headphones',
-  asin: 'B08N5WRWNW',
-  marketplace: 'amazon.com',
-  currentOrganic: 15,
-  currentSponsored: 3,
-  bestOrganic: 11,
-  bestSponsored: 2,
-  worstOrganic: 28,
-  worstSponsored: 8,
-  averageOrganic: 16.8,
-  averageSponsored: 4.1,
-  trackingStarted: '2024-01-01',
-  totalChecks: 15
-};
+import React, { useState } from 'react';
+import { usePositionHistory } from '@/hooks/usePositionHistory';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Download, Calendar, TrendingUp, TrendingDown, BarChart3, Target, Loader2 } from 'lucide-react';
 
 interface KeywordHistoryViewProps {
-  keywordId: string;
+  keyword: string;
+  asin: string;
   onBack: () => void;
 }
 
-export const KeywordHistoryView = ({ keywordId, onBack }: KeywordHistoryViewProps) => {
-  const [timeframe, setTimeframe] = useState('7d');
+export const KeywordHistoryView: React.FC<KeywordHistoryViewProps> = ({ keyword, asin, onBack }) => {
+  const [period, setPeriod] = useState('30');
   const [chartType, setChartType] = useState('line');
-  const [viewMode, setViewMode] = useState('combined');
   
-  const filteredData = mockHistoryData.slice(-(timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 15));
+  // Get position history for this specific keyword
+  const { data: positionHistory, isLoading, error } = usePositionHistory(undefined, keyword);
   
-  const calculateTrend = (data: KeywordHistoryData[], field: 'organicPosition' | 'sponsoredPosition') => {
-    const validData = data.filter(d => d[field] !== null).map(d => d[field] as number);
-    if (validData.length < 2) return { trend: 'stable', change: 0 };
+  // Filter history for this specific ASIN and time period
+  const filteredHistory = React.useMemo(() => {
+    if (!positionHistory) return [];
     
-    const recent = validData.slice(-3).reduce((a, b) => a + b, 0) / Math.min(3, validData.length);
-    const earlier = validData.slice(0, 3).reduce((a, b) => a + b, 0) / Math.min(3, validData.length);
-    const change = earlier - recent; // Lower position is better, so positive change is improvement
+    const days = parseInt(period);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
     
+    return positionHistory
+      .filter(entry => entry.tracking_jobs.asin === asin)
+      .filter(entry => new Date(entry.tracked_at) >= cutoffDate)
+      .sort((a, b) => new Date(a.tracked_at).getTime() - new Date(b.tracked_at).getTime());
+  }, [positionHistory, asin, period]);
+
+  // Calculate analytics from real data
+  const analytics = React.useMemo(() => {
+    if (!filteredHistory.length) return null;
+
+    const organicPositions = filteredHistory
+      .map(h => h.organic_position)
+      .filter(p => p !== null) as number[];
+    
+    const sponsoredPositions = filteredHistory
+      .map(h => h.sponsored_position)
+      .filter(p => p !== null) as number[];
+
+    const current = filteredHistory[filteredHistory.length - 1];
+    const previous = filteredHistory[filteredHistory.length - 2];
+
     return {
-      trend: change > 1 ? 'up' : change < -1 ? 'down' : 'stable',
-      change: Math.abs(change)
+      keyword,
+      asin,
+      marketplace: filteredHistory[0]?.tracking_jobs?.marketplace || 'US',
+      currentOrganic: current?.organic_position || null,
+      currentSponsored: current?.sponsored_position || null,
+      avgOrganic: organicPositions.length > 0 
+        ? Math.round(organicPositions.reduce((a, b) => a + b, 0) / organicPositions.length)
+        : null,
+      avgSponsored: sponsoredPositions.length > 0
+        ? Math.round(sponsoredPositions.reduce((a, b) => a + b, 0) / sponsoredPositions.length)
+        : null,
+      bestOrganic: organicPositions.length > 0 ? Math.min(...organicPositions) : null,
+      bestSponsored: sponsoredPositions.length > 0 ? Math.min(...sponsoredPositions) : null,
+      worstOrganic: organicPositions.length > 0 ? Math.max(...organicPositions) : null,
+      worstSponsored: sponsoredPositions.length > 0 ? Math.max(...sponsoredPositions) : null,
+      totalTracked: filteredHistory.length,
+      trend: calculateTrend(previous, current)
     };
+  }, [filteredHistory, keyword, asin]);
+
+  const calculateTrend = (previous: any, current: any) => {
+    if (!previous || !current) return 'stable';
+    
+    const prevPos = previous.organic_position || previous.sponsored_position || 999;
+    const currPos = current.organic_position || current.sponsored_position || 999;
+    
+    if (currPos < prevPos - 2) return 'up';
+    if (currPos > prevPos + 2) return 'down';
+    return 'stable';
   };
 
-  const organicTrend = calculateTrend(filteredData, 'organicPosition');
-  const sponsoredTrend = calculateTrend(filteredData, 'sponsoredPosition');
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading keyword history...</span>
+      </div>
+    );
+  }
 
-  const exportData = (format: string) => {
-    console.log(`Exporting keyword history in ${format} format`);
-  };
+  if (error || !analytics) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-destructive mb-4">Error loading keyword history</p>
+        <Button onClick={onBack}>Go Back</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -115,384 +104,221 @@ export const KeywordHistoryView = ({ keywordId, onBack }: KeywordHistoryViewProp
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-1" />
+            <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Results
           </Button>
           <div>
-            <h2 className="text-2xl font-bold">{mockKeywordDetails.keyword}</h2>
+            <h1 className="text-2xl font-bold">{analytics.keyword}</h1>
             <p className="text-muted-foreground">
-              ASIN: {mockKeywordDetails.asin} • {mockKeywordDetails.marketplace}
+              ASIN: {analytics.asin} • {analytics.marketplace}
             </p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => exportData('csv')}>
-            <Download className="h-4 w-4 mr-1" />
-            Export CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => exportData('pdf')}>
-            <Download className="h-4 w-4 mr-1" />
-            Export PDF
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export Data
           </Button>
         </div>
       </div>
 
       {/* Controls */}
-      <Card className="shadow-soft">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4 items-center">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <Select value={timeframe} onValueChange={setTimeframe}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7d">Last 7 Days</SelectItem>
-                  <SelectItem value="15d">Last 15 Days</SelectItem>
-                  <SelectItem value="30d">Last 30 Days</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              <Select value={chartType} onValueChange={setChartType}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="line">Line Chart</SelectItem>
-                  <SelectItem value="area">Area Chart</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              <Select value={viewMode} onValueChange={setViewMode}>
-                <SelectTrigger className="w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="combined">Combined View</SelectItem>
-                  <SelectItem value="organic">Organic Only</SelectItem>
-                  <SelectItem value="sponsored">Sponsored Only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4" />
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 Days</SelectItem>
+              <SelectItem value="15">Last 15 Days</SelectItem>
+              <SelectItem value="30">Last 30 Days</SelectItem>
+              <SelectItem value="90">Last 90 Days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4" />
+          <Select value={chartType} onValueChange={setChartType}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="line">Line Chart</SelectItem>
+              <SelectItem value="area">Area Chart</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Current Organic</p>
-                <p className="text-lg font-bold">#{mockKeywordDetails.currentOrganic}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <div className="flex items-center justify-center mb-2">
+                <Target className="h-5 w-5 text-green-600" />
               </div>
-              <Target className="h-5 w-5 text-primary" />
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">
+                  {analytics.currentOrganic ? `#${analytics.currentOrganic}` : 'N/A'}
+                </p>
+                <p className="text-sm text-muted-foreground">Current Organic</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-blue-600">
+                  {analytics.currentSponsored ? `#${analytics.currentSponsored}` : 'N/A'}
+                </p>
+                <p className="text-sm text-muted-foreground">Current Sponsored</p>
+              </div>
+              <div className="mt-4">
+                <Badge variant={analytics.trend === 'up' ? 'default' : analytics.trend === 'down' ? 'destructive' : 'secondary'}>
+                  {analytics.trend === 'up' && <TrendingUp className="h-3 w-3 mr-1" />}
+                  {analytics.trend === 'down' && <TrendingDown className="h-3 w-3 mr-1" />}
+                  {analytics.trend === 'stable' && <Target className="h-3 w-3 mr-1" />}
+                  {analytics.trend.charAt(0).toUpperCase() + analytics.trend.slice(1)}
+                </Badge>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Organic Performance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-xs text-muted-foreground">Best Organic</p>
-                <p className="text-lg font-bold text-success">#{mockKeywordDetails.bestOrganic}</p>
+                <p className="font-medium">Average: {analytics.avgOrganic ? `#${analytics.avgOrganic}` : 'N/A'}</p>
+                <p className="font-medium">Best: {analytics.bestOrganic ? `#${analytics.bestOrganic}` : 'N/A'}</p>
               </div>
-              <Award className="h-5 w-5 text-success" />
+              <div>
+                <p className="font-medium">Worst: {analytics.worstOrganic ? `#${analytics.worstOrganic}` : 'N/A'}</p>
+                <p className="font-medium">Tracked: {analytics.totalTracked}x</p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Sponsored Performance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-xs text-muted-foreground">Current Sponsored</p>
-                <p className="text-lg font-bold">#{mockKeywordDetails.currentSponsored}</p>
+                <p className="font-medium">Average: {analytics.avgSponsored ? `#${analytics.avgSponsored}` : 'N/A'}</p>
+                <p className="font-medium">Best: {analytics.bestSponsored ? `#${analytics.bestSponsored}` : 'N/A'}</p>
               </div>
-              <Zap className="h-5 w-5 text-warning" />
+              <div>
+                <p className="font-medium">Worst: {analytics.worstSponsored ? `#${analytics.worstSponsored}` : 'N/A'}</p>
+                <p className="font-medium">Active: {analytics.currentSponsored ? 'Yes' : 'No'}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Best Sponsored</p>
-                <p className="text-lg font-bold text-success">#{mockKeywordDetails.bestSponsored}</p>
-              </div>
-              <Award className="h-5 w-5 text-success" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Avg Organic</p>
-                <p className="text-lg font-bold">#{mockKeywordDetails.averageOrganic?.toFixed(1)}</p>
-              </div>
-              <BarChart3 className="h-5 w-5 text-info" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Total Checks</p>
-                <p className="text-lg font-bold">{mockKeywordDetails.totalChecks}</p>
-              </div>
-              <Clock className="h-5 w-5 text-muted-foreground" />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Tracking Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm">
+              <p><span className="font-medium">Period:</span> {period} days</p>
+              <p><span className="font-medium">Data Points:</span> {analytics.totalTracked}</p>
+              <p><span className="font-medium">Marketplace:</span> {analytics.marketplace}</p>
+              <p><span className="font-medium">Last Update:</span> {filteredHistory.length > 0 ? new Date(filteredHistory[filteredHistory.length - 1].tracked_at).toLocaleDateString() : 'N/A'}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Trend Analysis */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="shadow-soft">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Organic Trend Analysis</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {organicTrend.trend === 'up' ? (
-                  <TrendingUp className="h-5 w-5 text-success" />
-                ) : organicTrend.trend === 'down' ? (
-                  <TrendingDown className="h-5 w-5 text-destructive" />
-                ) : (
-                  <Target className="h-5 w-5 text-muted-foreground" />
-                )}
-                <span className="font-medium">
-                  {organicTrend.trend === 'up' ? 'Improving' : 
-                   organicTrend.trend === 'down' ? 'Declining' : 'Stable'}
-                </span>
-              </div>
-              <Badge variant={organicTrend.trend === 'up' ? 'default' : organicTrend.trend === 'down' ? 'destructive' : 'secondary'}>
-                {organicTrend.change.toFixed(1)} positions
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-soft">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Sponsored Trend Analysis</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {sponsoredTrend.trend === 'up' ? (
-                  <TrendingUp className="h-5 w-5 text-success" />
-                ) : sponsoredTrend.trend === 'down' ? (
-                  <TrendingDown className="h-5 w-5 text-destructive" />
-                ) : (
-                  <Target className="h-5 w-5 text-muted-foreground" />
-                )}
-                <span className="font-medium">
-                  {sponsoredTrend.trend === 'up' ? 'Improving' : 
-                   sponsoredTrend.trend === 'down' ? 'Declining' : 'Stable'}
-                </span>
-              </div>
-              <Badge variant={sponsoredTrend.trend === 'up' ? 'default' : sponsoredTrend.trend === 'down' ? 'destructive' : 'secondary'}>
-                {sponsoredTrend.change.toFixed(1)} positions
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Position History Chart */}
-      <Card className="shadow-soft">
+      {/* Chart Placeholder */}
+      <Card>
         <CardHeader>
-          <CardTitle>Position History</CardTitle>
+          <CardTitle>Position History Chart</CardTitle>
           <CardDescription>
             Historical ranking positions over the selected time period
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              {chartType === 'line' ? (
-                <LineChart data={filteredData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="date" 
-                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  />
-                  <YAxis reversed domain={[1, 50]} />
-                  <Tooltip 
-                    labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                    formatter={(value: any, name: string) => [
-                      value ? `#${value}` : 'Not ranked',
-                      name === 'organicPosition' ? 'Organic Position' : 'Sponsored Position'
-                    ]}
-                  />
-                  {(viewMode === 'combined' || viewMode === 'organic') && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="organicPosition" 
-                      stroke="hsl(var(--primary))" 
-                      strokeWidth={2}
-                      connectNulls={false}
-                      dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
-                    />
-                  )}
-                  {(viewMode === 'combined' || viewMode === 'sponsored') && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="sponsoredPosition" 
-                      stroke="hsl(var(--success))" 
-                      strokeWidth={2}
-                      connectNulls={false}
-                      dot={{ fill: 'hsl(var(--success))', strokeWidth: 2, r: 4 }}
-                    />
-                  )}
-                </LineChart>
-              ) : (
-                <AreaChart data={filteredData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="date" 
-                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  />
-                  <YAxis reversed domain={[1, 50]} />
-                  <Tooltip 
-                    labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                    formatter={(value: any, name: string) => [
-                      value ? `#${value}` : 'Not ranked',
-                      name === 'organicPosition' ? 'Organic Position' : 'Sponsored Position'
-                    ]}
-                  />
-                  {(viewMode === 'combined' || viewMode === 'organic') && (
-                    <Area 
-                      type="monotone" 
-                      dataKey="organicPosition" 
-                      stroke="hsl(var(--primary))" 
-                      fill="hsl(var(--primary) / 0.2)"
-                      strokeWidth={2}
-                      connectNulls={false}
-                    />
-                  )}
-                  {(viewMode === 'combined' || viewMode === 'sponsored') && (
-                    <Area 
-                      type="monotone" 
-                      dataKey="sponsoredPosition" 
-                      stroke="hsl(var(--success))" 
-                      fill="hsl(var(--success) / 0.2)"
-                      strokeWidth={2}
-                      connectNulls={false}
-                    />
-                  )}
-                </AreaChart>
-              )}
-            </ResponsiveContainer>
+          <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">
+            <div className="text-center">
+              <BarChart3 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-muted-foreground">
+                {filteredHistory.length > 0 
+                  ? `Chart visualization for ${filteredHistory.length} data points`
+                  : 'No data available for the selected period'
+                }
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Chart integration coming soon
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Historical Data Table */}
-      <Card className="shadow-soft">
+      {/* Recent Data Table */}
+      <Card>
         <CardHeader>
-          <CardTitle>Historical Data Points</CardTitle>
+          <CardTitle>Recent Position Data</CardTitle>
           <CardDescription>
-            Detailed position data for the selected time period
+            Latest position tracking results
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Date</th>
-                  <th className="text-center p-2">Time</th>
-                  <th className="text-center p-2">Organic Position</th>
-                  <th className="text-center p-2">Sponsored Position</th>
-                  <th className="text-center p-2">Change</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredData.slice().reverse().map((item, index) => {
-                  const prevItem = index < filteredData.length - 1 ? filteredData[filteredData.length - 2 - index] : null;
-                  const organicChange = prevItem && item.organicPosition && prevItem.organicPosition 
-                    ? prevItem.organicPosition - item.organicPosition 
-                    : 0;
-                  const sponsoredChange = prevItem && item.sponsoredPosition && prevItem.sponsoredPosition 
-                    ? prevItem.sponsoredPosition - item.sponsoredPosition 
-                    : 0;
-
-                  return (
-                    <tr key={item.date} className="border-b hover:bg-muted/50">
-                      <td className="p-2 font-medium">
-                        {new Date(item.date).toLocaleDateString()}
-                      </td>
-                      <td className="text-center p-2 text-sm text-muted-foreground">
-                        {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                      <td className="text-center p-2">
-                        {item.organicPosition ? (
-                          <Badge variant="outline">#{item.organicPosition}</Badge>
+          {filteredHistory.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2">Date</th>
+                    <th className="text-center p-2">Organic Position</th>
+                    <th className="text-center p-2">Sponsored Position</th>
+                    <th className="text-center p-2">Search Volume</th>
+                    <th className="text-center p-2">Competition</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHistory.slice(-10).reverse().map((entry, index) => (
+                    <tr key={index} className="border-b">
+                      <td className="p-2">{new Date(entry.tracked_at).toLocaleDateString()}</td>
+                      <td className="p-2 text-center">
+                        {entry.organic_position ? (
+                          <Badge variant="outline">#{entry.organic_position}</Badge>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="text-center p-2">
-                        {item.sponsoredPosition ? (
-                          <Badge variant="secondary">#{item.sponsoredPosition}</Badge>
+                      <td className="p-2 text-center">
+                        {entry.sponsored_position ? (
+                          <Badge variant="secondary">#{entry.sponsored_position}</Badge>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="text-center p-2">
-                        <div className="flex items-center justify-center gap-2">
-                          {organicChange > 0 && (
-                            <div className="flex items-center gap-1 text-success text-sm">
-                              <TrendingUp className="h-3 w-3" />
-                              <span>+{organicChange}</span>
-                            </div>
-                          )}
-                          {organicChange < 0 && (
-                            <div className="flex items-center gap-1 text-destructive text-sm">
-                              <TrendingDown className="h-3 w-3" />
-                              <span>{organicChange}</span>
-                            </div>
-                          )}
-                          {sponsoredChange > 0 && (
-                            <div className="flex items-center gap-1 text-success text-sm">
-                              <TrendingUp className="h-3 w-3" />
-                              <span>+{sponsoredChange}</span>
-                            </div>
-                          )}
-                          {sponsoredChange < 0 && (
-                            <div className="flex items-center gap-1 text-destructive text-sm">
-                              <TrendingDown className="h-3 w-3" />
-                              <span>{sponsoredChange}</span>
-                            </div>
-                          )}
-                          {organicChange === 0 && sponsoredChange === 0 && (
-                            <span className="text-muted-foreground text-sm">-</span>
-                          )}
-                        </div>
+                      <td className="p-2 text-center">
+                        {entry.search_volume || <span className="text-muted-foreground">-</span>}
+                      </td>
+                      <td className="p-2 text-center">
+                        <Badge variant="outline" className="text-xs">
+                          {entry.competition_level || 'Unknown'}
+                        </Badge>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No position data available for this period</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
