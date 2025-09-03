@@ -2,6 +2,8 @@ import React from 'react';
 import { useKeywordRankings } from '@/hooks/usePositionHistory';
 import { useTrackingJobs } from '@/hooks/useTrackingJobs';
 import { PerformanceWidget } from '@/components/PerformanceWidget';
+import { AntiDetectionMonitor } from '@/components/AntiDetectionMonitor';
+import { SystemHealthWidget } from '@/components/SystemHealthWidget';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -90,10 +92,19 @@ export const Dashboard = () => {
       </div>
 
       {/* Performance Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* System Health Widget */}
+        <SystemHealthWidget />
+
         {/* Performance Widget */}
         <PerformanceWidget />
 
+        {/* Anti-Detection Monitor */}
+        <AntiDetectionMonitor />
+      </div>
+
+      {/* Detailed Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Trend Analysis */}
         <Card>
           <CardHeader>

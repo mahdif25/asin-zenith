@@ -2,11 +2,32 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
+// CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Anti-detection configuration
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+  'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+];
+
+const CAPTCHA_PATTERNS = [
+  'captcha', 'robot', 'automation', 'suspicious activity', 
+  'verify you are human', 'security check', 'prove you\'re not a robot'
+];
+
+// Session management
+let sessionCookies: string = '';
+let lastSessionUpdate = 0;
+const SESSION_TIMEOUT = 300000; // 5 minutes
+
+// Request data structure
 interface ScrapeRequest {
   asin: string;
   keywords: string[];
@@ -22,6 +43,113 @@ interface ScrapingResult {
   competitionLevel: string;
 }
 
+// Anti-detection utilities
+function getRandomUserAgent(): string {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
+
+function getRandomDelay(): number {
+  return Math.floor(Math.random() * 6000) + 2000; // 2-8 seconds
+}
+
+function detectCaptcha(html: string): boolean {
+  const lowerHtml = html.toLowerCase();
+  return CAPTCHA_PATTERNS.some(pattern => lowerHtml.includes(pattern));
+}
+
+function generateRealisticHeaders(userAgent: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'User-Agent': userAgent,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
+    'Connection': 'keep-alive',
+  };
+  
+  // Add session cookies if available
+  if (sessionCookies) {
+    headers['Cookie'] = sessionCookies;
+  }
+  
+  return headers;
+}
+
+async function makeRequestWithRetry(url: string, maxRetries: number = 3): Promise<string> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Random delay between requests
+      if (attempt > 0) {
+        await new Promise(resolve => setTimeout(resolve, getRandomDelay()));
+      }
+      
+      const userAgent = getRandomUserAgent();
+      const headers = generateRealisticHeaders(userAgent);
+      
+      console.log(`Attempt ${attempt + 1} - Fetching: ${url}`);
+      console.log(`User-Agent: ${userAgent}`);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        redirect: 'follow'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const html = await response.text();
+      
+      // Check for CAPTCHA
+      if (detectCaptcha(html)) {
+        throw new Error('CAPTCHA detected - rotating session');
+      }
+      
+      // Update session cookies
+      const setCookieHeaders = response.headers.get('set-cookie');
+      if (setCookieHeaders) {
+        sessionCookies = setCookieHeaders;
+        lastSessionUpdate = Date.now();
+      }
+      
+      console.log(`Request successful - Content length: ${html.length}`);
+      return html;
+      
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`Attempt ${attempt + 1} failed:`, error.message);
+      
+      // Exponential backoff with jitter
+      if (attempt < maxRetries - 1) {
+        const backoffDelay = Math.min(1000 * Math.pow(2, attempt), 10000);
+        const jitter = Math.random() * 1000;
+        await new Promise(resolve => setTimeout(resolve, backoffDelay + jitter));
+      }
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+}
+
+function shouldRotateSession(): boolean {
+  return Date.now() - lastSessionUpdate > SESSION_TIMEOUT;
+}
+
+function rotateSession(): void {
+  sessionCookies = '';
+  lastSessionUpdate = 0;
+  console.log('Session rotated');
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -35,15 +163,15 @@ serve(async (req) => {
 
     const { asin, keywords, marketplace, trackingJobId }: ScrapeRequest = await req.json();
     
-    console.log(`Starting scrape for ASIN: ${asin}, Keywords: ${keywords.join(', ')}, Marketplace: ${marketplace}`);
-
+    console.log(`Processing scrape request for ASIN: ${asin}, Keywords: ${keywords.join(', ')}`);
+    
+    // Check if session rotation is needed
+    if (shouldRotateSession()) {
+      rotateSession();
+    }
+    
     const results: ScrapingResult[] = [];
-    const userAgents = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    ];
-
+    
     // Get marketplace URL
     const marketplaceUrls: Record<string, string> = {
       'US': 'https://www.amazon.com',
@@ -59,83 +187,71 @@ serve(async (req) => {
       'MX': 'https://www.amazon.com.mx',
       'BR': 'https://www.amazon.com.br'
     };
-
+    
     const baseUrl = marketplaceUrls[marketplace] || marketplaceUrls['US'];
-
-    // Process each keyword with random delays
+    
     for (const keyword of keywords) {
-      console.log(`Scraping keyword: ${keyword}`);
-      
       try {
-        // Random delay between requests (20-30 seconds)
-        const delay = Math.floor(Math.random() * 10000) + 20000;
-        await new Promise(resolve => setTimeout(resolve, delay));
-
-        const searchUrl = `${baseUrl}/s?k=${encodeURIComponent(keyword)}&ref=sr_pg_1`;
-        const randomUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-
-        const response = await fetch(searchUrl, {
-          headers: {
-            'User-Agent': randomUserAgent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive',
-          }
-        });
-
-        console.log(`Response status for ${keyword}: ${response.status}`);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const html = await response.text();
+        console.log(`Scraping keyword: "${keyword}"`);
         
-        // Parse HTML to find product positions
+        // Build Amazon search URL
+        const searchUrl = `${baseUrl}/s?k=${encodeURIComponent(keyword)}&ref=sr_pg_1`;
+        
+        // Random delay before each keyword search (2-8 seconds)
+        const delay = getRandomDelay();
+        console.log(`Waiting ${delay}ms before next request`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Make request with anti-detection measures
+        const html = await makeRequestWithRetry(searchUrl);
+        
+        // Parse results
         const organicPosition = findProductPosition(html, asin, 'organic');
         const sponsoredPosition = findProductPosition(html, asin, 'sponsored');
-        
-        // Estimate search volume and competition (placeholder logic)
         const searchVolume = estimateSearchVolume(html);
         const competitionLevel = assessCompetitionLevel(html);
-
-        results.push({
+        
+        const result: ScrapingResult = {
           keyword,
           organicPosition,
           sponsoredPosition,
           searchVolume,
           competitionLevel
-        });
-
-        // Log API request for rate limiting tracking
+        };
+        
+        results.push(result);
+        
+        console.log(`Keyword "${keyword}" results:`, result);
+        
+        // Log successful scrape to database
         await supabase.from('api_requests').insert({
-          user_id: null, // Will be set by the calling function
           tracking_job_id: trackingJobId,
-          marketplace,
+          user_id: null, // Will be set by RLS
           keyword,
+          marketplace,
           success: true,
           response_time_ms: Date.now(),
-          user_agent: randomUserAgent
+          ip_address: null,
+          user_agent: getRandomUserAgent()
         });
-
-        console.log(`Successfully scraped ${keyword}: Organic: ${organicPosition}, Sponsored: ${sponsoredPosition}`);
-
-      } catch (error) {
-        console.error(`Error scraping keyword ${keyword}:`, error);
         
-        // Log failed request
+      } catch (error) {
+        console.error(`Error scraping keyword "${keyword}":`, error);
+        
+        // Log failed scrape to database
         await supabase.from('api_requests').insert({
-          user_id: null,
           tracking_job_id: trackingJobId,
-          marketplace,
+          user_id: null, // Will be set by RLS
           keyword,
+          marketplace,
           success: false,
           error_message: error.message,
-          response_time_ms: Date.now()
+          response_time_ms: Date.now(),
+          ip_address: null,
+          user_agent: getRandomUserAgent()
         });
-
-        // Continue with other keywords even if one fails
+        
+        // Add empty result for failed keyword
         results.push({
           keyword,
           organicPosition: null,
