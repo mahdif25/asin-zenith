@@ -8,6 +8,7 @@ import { Download, FileText, TrendingUp, Calendar, Loader2 } from "lucide-react"
 import { useState, useMemo } from "react";
 import { useKeywordRankings, usePositionHistory } from '@/hooks/usePositionHistory';
 import { useTrackingJobs } from '@/hooks/useTrackingJobs';
+import { useExportData } from '@/hooks/useExportData';
 import { format } from 'date-fns';
 
 export const ReportsView = () => {
@@ -18,6 +19,7 @@ export const ReportsView = () => {
   const { data: rankings, isLoading: rankingsLoading } = useKeywordRankings();
   const { data: positionHistory, isLoading: historyLoading } = usePositionHistory();
   const { trackingJobs } = useTrackingJobs();
+  const { exportReport, isExporting } = useExportData();
 
   const asins = useMemo(() => {
     if (!trackingJobs) return [];
@@ -71,9 +73,13 @@ export const ReportsView = () => {
 
   const isLoading = rankingsLoading || historyLoading;
 
-  const exportReport = (format: string) => {
-    // This would need backend implementation
-    console.log(`Exporting ${reportType} report in ${format} format for ${timeframe}`);
+  const handleExport = (format: 'csv' | 'pdf') => {
+    exportReport({
+      reportType: reportType as 'combined' | 'organic' | 'sponsored',
+      timeframe: timeframe as '24h' | '7d' | '30d' | '90d',
+      selectedAsin,
+      format
+    });
   };
 
   if (isLoading) {
@@ -145,11 +151,21 @@ export const ReportsView = () => {
             </div>
 
             <div className="flex items-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => exportReport('csv')}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleExport('csv')}
+                disabled={isExporting}
+              >
                 <Download className="h-4 w-4 mr-1" />
-                Export CSV
+                {isExporting ? 'Exporting...' : 'Export CSV'}
               </Button>
-              <Button variant="outline" size="sm" onClick={() => exportReport('pdf')}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleExport('pdf')}
+                disabled={isExporting}
+              >
                 <Download className="h-4 w-4 mr-1" />
                 Export PDF
               </Button>

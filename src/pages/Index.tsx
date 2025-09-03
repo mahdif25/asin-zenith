@@ -4,6 +4,8 @@ import { KeywordSetup } from '../components/KeywordSetup';
 import { TrackingResults } from '../components/TrackingResults';
 import { Dashboard } from '../components/Dashboard';
 import { ReportsView } from '../components/ReportsView';
+import { NotificationCenter } from '../components/NotificationCenter';
+import { ErrorBoundary } from '../components/ui/error-boundary';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +24,7 @@ const Index = () => {
             <h1 className="text-2xl font-bold">Amazon Keyword Tracker</h1>
           </div>
           <div className="flex items-center space-x-4">
+            <NotificationCenter />
             <p className="text-sm text-muted-foreground">
               Welcome back, {user?.email}
             </p>
@@ -58,7 +61,9 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
-            <Dashboard />
+            <ErrorBoundary>
+              <Dashboard />
+            </ErrorBoundary>
           </TabsContent>
 
           <TabsContent value="setup" className="space-y-6">
@@ -70,7 +75,9 @@ const Index = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <KeywordSetup />
+                <ErrorBoundary>
+                  <KeywordSetup />
+                </ErrorBoundary>
               </CardContent>
             </Card>
           </TabsContent>
@@ -84,7 +91,9 @@ const Index = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <TrackingResults />
+                <ErrorBoundary>
+                  <TrackingResults />
+                </ErrorBoundary>
               </CardContent>
             </Card>
           </TabsContent>
@@ -98,7 +107,9 @@ const Index = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ReportsView />
+                <ErrorBoundary>
+                  <ReportsView />
+                </ErrorBoundary>
               </CardContent>
             </Card>
           </TabsContent>

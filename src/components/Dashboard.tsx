@@ -1,6 +1,7 @@
 import React from 'react';
 import { useKeywordRankings } from '@/hooks/usePositionHistory';
 import { useTrackingJobs } from '@/hooks/useTrackingJobs';
+import { PerformanceWidget } from '@/components/PerformanceWidget';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -90,6 +91,9 @@ export const Dashboard = () => {
 
       {/* Performance Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Performance Widget */}
+        <PerformanceWidget />
+
         {/* Trend Analysis */}
         <Card>
           <CardHeader>
