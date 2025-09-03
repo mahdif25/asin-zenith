@@ -14,7 +14,219 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      api_requests: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          ip_address: unknown | null
+          keyword: string | null
+          marketplace: Database["public"]["Enums"]["marketplace_type"]
+          response_time_ms: number | null
+          success: boolean
+          tracking_job_id: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          keyword?: string | null
+          marketplace: Database["public"]["Enums"]["marketplace_type"]
+          response_time_ms?: number | null
+          success?: boolean
+          tracking_job_id?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          keyword?: string | null
+          marketplace?: Database["public"]["Enums"]["marketplace_type"]
+          response_time_ms?: number | null
+          success?: boolean
+          tracking_job_id?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_requests_tracking_job_id_fkey"
+            columns: ["tracking_job_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      position_history: {
+        Row: {
+          competition_level: string | null
+          created_at: string
+          id: string
+          keyword: string
+          organic_position: number | null
+          search_volume: number | null
+          sponsored_position: number | null
+          tracked_at: string
+          tracking_job_id: string
+        }
+        Insert: {
+          competition_level?: string | null
+          created_at?: string
+          id?: string
+          keyword: string
+          organic_position?: number | null
+          search_volume?: number | null
+          sponsored_position?: number | null
+          tracked_at?: string
+          tracking_job_id: string
+        }
+        Update: {
+          competition_level?: string | null
+          created_at?: string
+          id?: string
+          keyword?: string
+          organic_position?: number | null
+          search_volume?: number | null
+          sponsored_position?: number | null
+          tracked_at?: string
+          tracking_job_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_history_tracking_job_id_fkey"
+            columns: ["tracking_job_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracking_jobs: {
+        Row: {
+          asin: string
+          created_at: string
+          id: string
+          keywords: string[]
+          last_tracked_at: string | null
+          marketplace: Database["public"]["Enums"]["marketplace_type"]
+          next_tracking_at: string | null
+          random_delay_max: number | null
+          random_delay_min: number | null
+          status: Database["public"]["Enums"]["tracking_status"]
+          tracking_frequency: Database["public"]["Enums"]["tracking_frequency"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin: string
+          created_at?: string
+          id?: string
+          keywords: string[]
+          last_tracked_at?: string | null
+          marketplace?: Database["public"]["Enums"]["marketplace_type"]
+          next_tracking_at?: string | null
+          random_delay_max?: number | null
+          random_delay_min?: number | null
+          status?: Database["public"]["Enums"]["tracking_status"]
+          tracking_frequency?: Database["public"]["Enums"]["tracking_frequency"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          last_tracked_at?: string | null
+          marketplace?: Database["public"]["Enums"]["marketplace_type"]
+          next_tracking_at?: string | null
+          random_delay_max?: number | null
+          random_delay_min?: number | null
+          status?: Database["public"]["Enums"]["tracking_status"]
+          tracking_frequency?: Database["public"]["Enums"]["tracking_frequency"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tracking_schedules: {
+        Row: {
+          created_at: string
+          executed_at: string | null
+          id: string
+          scheduled_at: string
+          status: Database["public"]["Enums"]["tracking_status"]
+          tracking_job_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          scheduled_at: string
+          status?: Database["public"]["Enums"]["tracking_status"]
+          tracking_job_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          scheduled_at?: string
+          status?: Database["public"]["Enums"]["tracking_status"]
+          tracking_job_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_schedules_tracking_job_id_fkey"
+            columns: ["tracking_job_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_profiles: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          daily_api_limit: number | null
+          email: string
+          full_name: string | null
+          id: string
+          subscription_tier: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          daily_api_limit?: number | null
+          email: string
+          full_name?: string | null
+          id: string
+          subscription_tier?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          daily_api_limit?: number | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          subscription_tier?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +235,21 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      marketplace_type:
+        | "US"
+        | "UK"
+        | "DE"
+        | "FR"
+        | "IT"
+        | "ES"
+        | "CA"
+        | "JP"
+        | "AU"
+        | "IN"
+        | "MX"
+        | "BR"
+      tracking_frequency: "hourly" | "every_6_hours" | "daily" | "weekly"
+      tracking_status: "active" | "paused" | "completed" | "failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +376,23 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      marketplace_type: [
+        "US",
+        "UK",
+        "DE",
+        "FR",
+        "IT",
+        "ES",
+        "CA",
+        "JP",
+        "AU",
+        "IN",
+        "MX",
+        "BR",
+      ],
+      tracking_frequency: ["hourly", "every_6_hours", "daily", "weekly"],
+      tracking_status: ["active", "paused", "completed", "failed"],
+    },
   },
 } as const
