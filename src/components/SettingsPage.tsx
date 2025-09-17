@@ -3,8 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProxySettingsCard } from './proxy/ProxySettingsCard';
 import { ApiStatusOverview } from './proxy/ApiStatusOverview';
-import { DataUsageSettings } from './proxy/DataUsageSettings';
-import { Cog, Wifi, BarChart3 } from 'lucide-react';
+import { DataOptimizer } from './optimization/DataOptimizer';
+import { PerformanceAnalytics } from './analytics/PerformanceAnalytics';
+import { ExportManager } from './reports/ExportManager';
+import { Cog, Wifi, BarChart3, TrendingUp, Download } from 'lucide-react';
 
 export const SettingsPage = () => {
   return (
@@ -15,7 +17,7 @@ export const SettingsPage = () => {
       </div>
 
       <Tabs defaultValue="proxies" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
           <TabsTrigger value="proxies" className="flex items-center space-x-2">
             <Wifi className="h-4 w-4" />
             <span>Proxies</span>
@@ -26,7 +28,15 @@ export const SettingsPage = () => {
           </TabsTrigger>
           <TabsTrigger value="usage" className="flex items-center space-x-2">
             <BarChart3 className="h-4 w-4" />
-            <span>Data Usage</span>
+            <span>Optimization</span>
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex items-center space-x-2">
+            <TrendingUp className="h-4 w-4" />
+            <span>Analytics</span>
+          </TabsTrigger>
+          <TabsTrigger value="export" className="flex items-center space-x-2">
+            <Download className="h-4 w-4" />
+            <span>Export</span>
           </TabsTrigger>
         </TabsList>
 
@@ -39,7 +49,15 @@ export const SettingsPage = () => {
         </TabsContent>
 
         <TabsContent value="usage" className="space-y-6">
-          <DataUsageSettings />
+          <DataOptimizer />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-6">
+          <PerformanceAnalytics />
+        </TabsContent>
+
+        <TabsContent value="export" className="space-y-6">
+          <ExportManager />
         </TabsContent>
       </Tabs>
     </div>
