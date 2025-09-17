@@ -22,9 +22,11 @@ const CAPTCHA_PATTERNS = [
   'verify you are human', 'security check', 'prove you\'re not a robot'
 ];
 
-// Session management
+// Session management and proxy rotation
 let sessionCookies: string = '';
 let lastSessionUpdate = 0;
+let currentProxyIndex = 0;
+let proxyPool: any[] = [];
 const SESSION_TIMEOUT = 300000; // 5 minutes
 
 // Request data structure
@@ -94,14 +96,34 @@ async function makeRequestWithRetry(url: string, maxRetries: number = 3): Promis
       const userAgent = getRandomUserAgent();
       const headers = generateRealisticHeaders(userAgent);
       
-      console.log(`Attempt ${attempt + 1} - Fetching: ${url}`);
+      // Try with proxy if available
+      const proxy = getNextProxy();
+      if (proxy) {
+        console.log(`Attempt ${attempt + 1} with proxy ${proxy.id} - Fetching: ${url}`);
+        headers['Proxy-Authorization'] = generateProxyAuth(proxy);
+      } else {
+        console.log(`Attempt ${attempt + 1} direct - Fetching: ${url}`);
+      }
+      
       console.log(`User-Agent: ${userAgent}`);
       
-      const response = await fetch(url, {
+      const fetchOptions: RequestInit = {
         method: 'GET',
         headers,
         redirect: 'follow'
-      });
+      };
+
+      // Add proxy configuration if available
+      if (proxy) {
+        // Note: In Deno, proxy support requires using a proxy client
+        // For now, we'll implement basic proxy headers
+        fetchOptions.headers = {
+          ...headers,
+          'Host': new URL(url).host,
+        };
+      }
+      
+      const response = await fetch(url, fetchOptions);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -109,9 +131,9 @@ async function makeRequestWithRetry(url: string, maxRetries: number = 3): Promis
       
       const html = await response.text();
       
-      // Check for CAPTCHA
+      // Check for CAPTCHA or blocking
       if (detectCaptcha(html)) {
-        throw new Error('CAPTCHA detected - rotating session');
+        throw new Error('CAPTCHA detected - rotating session and proxy');
       }
       
       // Update session cookies
@@ -127,6 +149,12 @@ async function makeRequestWithRetry(url: string, maxRetries: number = 3): Promis
     } catch (error) {
       lastError = error as Error;
       console.error(`Attempt ${attempt + 1} failed:`, error.message);
+      
+      // On CAPTCHA or blocking, rotate proxy immediately
+      if (error.message.includes('CAPTCHA') || error.message.includes('403') || error.message.includes('503')) {
+        rotateSession();
+        console.log('Rotating proxy due to blocking');
+      }
       
       // Exponential backoff with jitter
       if (attempt < maxRetries - 1) {
@@ -150,6 +178,45 @@ function rotateSession(): void {
   console.log('Session rotated');
 }
 
+// Proxy management functions
+async function loadProxyPool(supabase: any, userId?: string): Promise<void> {
+  try {
+    const { data, error } = await supabase.functions.invoke('proxy-helper-functions', {
+      body: { type: 'get_proxy_configurations', p_user_id: userId }
+    });
+
+    if (error) throw error;
+
+    proxyPool = (data?.data || [])
+      .filter((config: any) => config.configuration?.enabled && config.configuration?.endpoint)
+      .map((config: any) => ({
+        id: config.provider_id,
+        endpoint: config.configuration.endpoint,
+        port: config.configuration.port,
+        username: config.configuration.username,
+        password: config.configuration.password,
+        zones: config.configuration.zones?.split(',') || ['US']
+      }));
+
+    console.log(`Loaded ${proxyPool.length} active proxies`);
+  } catch (error) {
+    console.error('Error loading proxy pool:', error);
+    proxyPool = [];
+  }
+}
+
+function getNextProxy(): any | null {
+  if (proxyPool.length === 0) return null;
+  
+  currentProxyIndex = (currentProxyIndex + 1) % proxyPool.length;
+  return proxyPool[currentProxyIndex];
+}
+
+function generateProxyAuth(proxy: any): string {
+  if (!proxy.username || !proxy.password) return '';
+  return `Basic ${btoa(`${proxy.username}:${proxy.password}`)}`;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -161,9 +228,12 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { asin, keywords, marketplace, trackingJobId }: ScrapeRequest = await req.json();
+    const { asin, keywords, marketplace, trackingJobId, userId }: ScrapeRequest & { userId?: string } = await req.json();
     
     console.log(`Processing scrape request for ASIN: ${asin}, Keywords: ${keywords.join(', ')}`);
+    
+    // Load proxy configurations for this user
+    await loadProxyPool(supabase, userId);
     
     // Check if session rotation is needed
     if (shouldRotateSession()) {

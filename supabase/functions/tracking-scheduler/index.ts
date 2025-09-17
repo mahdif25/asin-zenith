@@ -54,7 +54,7 @@ serve(async (req) => {
       try {
         console.log(`Processing job ${job.id} for ASIN: ${job.asin}`);
 
-        // Call the amazon-scraper function
+        // Call the amazon-scraper function with user context
         const scrapeResponse = await fetch(`${supabaseUrl}/functions/v1/amazon-scraper`, {
           method: 'POST',
           headers: {
@@ -65,7 +65,8 @@ serve(async (req) => {
             asin: job.asin,
             keywords: job.keywords,
             marketplace: job.marketplace,
-            trackingJobId: job.id
+            trackingJobId: job.id,
+            userId: job.user_id
           })
         });
 
@@ -93,8 +94,54 @@ serve(async (req) => {
 
           successfulJobs++;
           console.log(`Successfully processed job ${job.id}`);
+
+          // Send success notification
+          try {
+            await fetch(`${supabaseUrl}/functions/v1/notification-service`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({
+                type: 'tracking_complete',
+                userId: job.user_id,
+                data: {
+                  jobId: job.id,
+                  jobName: `${job.asin} Tracking`,
+                  keywords: job.keywords,
+                  results: scrapeResult.results
+                }
+              })
+            });
+          } catch (notifError) {
+            console.error(`Error sending notification for job ${job.id}:`, notifError);
+          }
         } else {
           console.error(`Scraping failed for job ${job.id}:`, scrapeResult.error);
+          
+          // Send failure notification
+          try {
+            await fetch(`${supabaseUrl}/functions/v1/notification-service`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({
+                type: 'tracking_failed',
+                userId: job.user_id,
+                data: {
+                  jobId: job.id,
+                  jobName: `${job.asin} Tracking`,
+                  keywords: job.keywords,
+                  error: scrapeResult.error
+                }
+              })
+            });
+          } catch (notifError) {
+            console.error(`Error sending failure notification for job ${job.id}:`, notifError);
+          }
         }
 
         // Update job's last_tracked_at and next_tracking_at
