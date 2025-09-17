@@ -35,6 +35,7 @@ interface ScrapeRequest {
   keywords: string[];
   marketplace: string;
   trackingJobId: string;
+  userId?: string;
 }
 
 interface ScrapingResult {
@@ -81,6 +82,45 @@ function generateRealisticHeaders(userAgent: string): Record<string, string> {
   }
   
   return headers;
+}
+
+// Proxy management functions
+async function loadProxyPool(supabase: any, userId?: string): Promise<void> {
+  try {
+    const { data, error } = await supabase.functions.invoke('proxy-helper-functions', {
+      body: { type: 'get_proxy_configurations', p_user_id: userId }
+    });
+
+    if (error) throw error;
+
+    proxyPool = (data?.data || [])
+      .filter((config: any) => config.configuration?.enabled && config.configuration?.endpoint)
+      .map((config: any) => ({
+        id: config.provider_id,
+        endpoint: config.configuration.endpoint,
+        port: config.configuration.port,
+        username: config.configuration.username,
+        password: config.configuration.password,
+        zones: config.configuration.zones?.split(',') || ['US']
+      }));
+
+    console.log(`Loaded ${proxyPool.length} active proxies`);
+  } catch (error) {
+    console.error('Error loading proxy pool:', error);
+    proxyPool = [];
+  }
+}
+
+function getNextProxy(): any | null {
+  if (proxyPool.length === 0) return null;
+  
+  currentProxyIndex = (currentProxyIndex + 1) % proxyPool.length;
+  return proxyPool[currentProxyIndex];
+}
+
+function generateProxyAuth(proxy: any): string {
+  if (!proxy.username || !proxy.password) return '';
+  return `Basic ${btoa(`${proxy.username}:${proxy.password}`)}`;
 }
 
 async function makeRequestWithRetry(url: string, maxRetries: number = 3): Promise<string> {
@@ -178,45 +218,6 @@ function rotateSession(): void {
   console.log('Session rotated');
 }
 
-// Proxy management functions
-async function loadProxyPool(supabase: any, userId?: string): Promise<void> {
-  try {
-    const { data, error } = await supabase.functions.invoke('proxy-helper-functions', {
-      body: { type: 'get_proxy_configurations', p_user_id: userId }
-    });
-
-    if (error) throw error;
-
-    proxyPool = (data?.data || [])
-      .filter((config: any) => config.configuration?.enabled && config.configuration?.endpoint)
-      .map((config: any) => ({
-        id: config.provider_id,
-        endpoint: config.configuration.endpoint,
-        port: config.configuration.port,
-        username: config.configuration.username,
-        password: config.configuration.password,
-        zones: config.configuration.zones?.split(',') || ['US']
-      }));
-
-    console.log(`Loaded ${proxyPool.length} active proxies`);
-  } catch (error) {
-    console.error('Error loading proxy pool:', error);
-    proxyPool = [];
-  }
-}
-
-function getNextProxy(): any | null {
-  if (proxyPool.length === 0) return null;
-  
-  currentProxyIndex = (currentProxyIndex + 1) % proxyPool.length;
-  return proxyPool[currentProxyIndex];
-}
-
-function generateProxyAuth(proxy: any): string {
-  if (!proxy.username || !proxy.password) return '';
-  return `Basic ${btoa(`${proxy.username}:${proxy.password}`)}`;
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -228,7 +229,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { asin, keywords, marketplace, trackingJobId, userId }: ScrapeRequest & { userId?: string } = await req.json();
+    const { asin, keywords, marketplace, trackingJobId, userId }: ScrapeRequest = await req.json();
     
     console.log(`Processing scrape request for ASIN: ${asin}, Keywords: ${keywords.join(', ')}`);
     
@@ -296,13 +297,14 @@ serve(async (req) => {
         // Log successful scrape to database
         await supabase.from('api_requests').insert({
           tracking_job_id: trackingJobId,
-          user_id: null, // Will be set by RLS
+          user_id: userId,
           keyword,
           marketplace,
           success: true,
           response_time_ms: Date.now(),
           ip_address: null,
-          user_agent: getRandomUserAgent()
+          user_agent: getRandomUserAgent(),
+          data_used: html.length
         });
         
       } catch (error) {
@@ -311,7 +313,7 @@ serve(async (req) => {
         // Log failed scrape to database
         await supabase.from('api_requests').insert({
           tracking_job_id: trackingJobId,
-          user_id: null, // Will be set by RLS
+          user_id: userId,
           keyword,
           marketplace,
           success: false,
@@ -336,7 +338,7 @@ serve(async (req) => {
       success: true, 
       results,
       totalKeywords: keywords.length,
-      successfulScrapess: results.filter(r => r.organicPosition !== null || r.sponsoredPosition !== null).length
+      successfulScrapes: results.filter(r => r.organicPosition !== null || r.sponsoredPosition !== null).length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

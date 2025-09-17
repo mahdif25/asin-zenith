@@ -4,6 +4,7 @@ import { useTrackingJobs } from '@/hooks/useTrackingJobs';
 import { PerformanceWidget } from '@/components/PerformanceWidget';
 import { AntiDetectionMonitor } from '@/components/AntiDetectionMonitor';
 import { SystemHealthWidget } from '@/components/SystemHealthWidget';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,12 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header with Notification Bell */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <NotificationBell />
+      </div>
+      
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
