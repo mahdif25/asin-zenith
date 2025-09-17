@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useKeywordRankings, usePositionHistory } from './usePositionHistory';
 import { useAuth } from './useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 interface ExportOptions {
   reportType: 'combined' | 'organic' | 'sponsored';
@@ -16,6 +16,7 @@ export const useExportData = () => {
   const { data: rankings } = useKeywordRankings();
   const { data: positionHistory } = usePositionHistory();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const generateCSV = (data: any[], filename: string) => {
     if (!data.length) return;
