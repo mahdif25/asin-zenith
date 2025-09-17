@@ -9,7 +9,8 @@ import { ErrorBoundary } from '../components/ui/error-boundary';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, Target, TrendingUp, Settings, LogOut, Cog } from 'lucide-react';
+import { BarChart3, Target, TrendingUp, Settings, LogOut, Cog, Monitor } from 'lucide-react';
+import { MonitoringOverview } from '../components/monitoring/MonitoringOverview';
 import { SettingsPage } from '../components/SettingsPage';
 
 const Index = () => {
@@ -42,7 +43,7 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
+          <TabsList className="grid w-full grid-cols-6 lg:w-[600px]">
             <TabsTrigger value="dashboard" className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4" />
               <span>Dashboard</span>
@@ -54,6 +55,10 @@ const Index = () => {
             <TabsTrigger value="tracking" className="flex items-center space-x-2">
               <Target className="h-4 w-4" />
               <span>Tracking</span>
+            </TabsTrigger>
+            <TabsTrigger value="monitoring" className="flex items-center space-x-2">
+              <Monitor className="h-4 w-4" />
+              <span>Monitor</span>
             </TabsTrigger>
             <TabsTrigger value="reports" className="flex items-center space-x-2">
               <TrendingUp className="h-4 w-4" />
@@ -101,6 +106,12 @@ const Index = () => {
                 </ErrorBoundary>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="monitoring" className="space-y-6">
+            <ErrorBoundary>
+              <MonitoringOverview />
+            </ErrorBoundary>
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-6">
