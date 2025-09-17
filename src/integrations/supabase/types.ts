@@ -91,6 +91,39 @@ export type Database = {
         }
         Relationships: []
       }
+      export_history: {
+        Row: {
+          created_at: string
+          data_types: string[]
+          date_range: Json
+          file_size: number | null
+          filename: string
+          format: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_types: string[]
+          date_range: Json
+          file_size?: number | null
+          filename: string
+          format: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data_types?: string[]
+          date_range?: Json
+          file_size?: number | null
+          filename?: string
+          format?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string

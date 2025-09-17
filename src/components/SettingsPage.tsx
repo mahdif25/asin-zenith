@@ -6,7 +6,8 @@ import { ApiStatusOverview } from './proxy/ApiStatusOverview';
 import { DataOptimizer } from './optimization/DataOptimizer';
 import { PerformanceAnalytics } from './analytics/PerformanceAnalytics';
 import { ExportManager } from './reports/ExportManager';
-import { Cog, Wifi, BarChart3, TrendingUp, Download } from 'lucide-react';
+import { AdvancedScheduler } from './scheduling/AdvancedScheduler';
+import { Cog, Wifi, BarChart3, TrendingUp, Download, Clock } from 'lucide-react';
 
 export const SettingsPage = () => {
   return (
@@ -17,7 +18,7 @@ export const SettingsPage = () => {
       </div>
 
       <Tabs defaultValue="proxies" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-6 lg:w-[700px]">
           <TabsTrigger value="proxies" className="flex items-center space-x-2">
             <Wifi className="h-4 w-4" />
             <span>Proxies</span>
@@ -37,6 +38,10 @@ export const SettingsPage = () => {
           <TabsTrigger value="export" className="flex items-center space-x-2">
             <Download className="h-4 w-4" />
             <span>Export</span>
+          </TabsTrigger>
+          <TabsTrigger value="scheduler" className="flex items-center space-x-2">
+            <Clock className="h-4 w-4" />
+            <span>Scheduler</span>
           </TabsTrigger>
         </TabsList>
 
@@ -58,6 +63,10 @@ export const SettingsPage = () => {
 
         <TabsContent value="export" className="space-y-6">
           <ExportManager />
+        </TabsContent>
+
+        <TabsContent value="scheduler" className="space-y-6">
+          <AdvancedScheduler />
         </TabsContent>
       </Tabs>
     </div>

@@ -28,7 +28,7 @@ export const DataOptimizer = () => {
     if (!optimizedSettings || !usage) return;
 
     let savings = 0;
-    const baseUsage = usage.monthly || 100; // MB
+    const baseUsage = usage.month || 100; // MB
 
     // Calculate savings from different optimizations
     if (optimizedSettings.blockImages) savings += baseUsage * 0.4;
@@ -36,7 +36,7 @@ export const DataOptimizer = () => {
     if (optimizedSettings.blockJS) savings += baseUsage * 0.15;
     if (optimizedSettings.compressRequests) savings += baseUsage * 0.2;
     if (optimizedSettings.minifyHTML) savings += baseUsage * 0.05;
-    if (optimizedSettings.enableCaching) savings += baseUsage * 0.3;
+    if (optimizedSettings.cacheResponses) savings += baseUsage * 0.3;
 
     setSavingsEstimate(Math.min(savings, baseUsage * 0.8)); // Max 80% savings
   };
@@ -232,14 +232,14 @@ export const DataOptimizer = () => {
                   </p>
                 </div>
                 <Switch
-                  checked={optimizedSettings?.enableCaching || false}
+                  checked={optimizedSettings?.cacheResponses || false}
                   onCheckedChange={(checked) => 
-                    handleSettingChange('enableCaching', checked)
+                    handleSettingChange('cacheResponses', checked)
                   }
                 />
               </div>
               
-              {optimizedSettings?.enableCaching && (
+              {optimizedSettings?.cacheResponses && (
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Max Cache Size (MB)</span>
@@ -280,23 +280,23 @@ export const DataOptimizer = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">Today</p>
-                  <p className="text-2xl font-bold">{usage?.daily || 0} MB</p>
-                  <Progress value={(usage?.daily || 0) / 10} className="h-2" />
+                  <p className="text-2xl font-bold">{usage?.today || 0} MB</p>
+                  <Progress value={(usage?.today || 0) / 10} className="h-2" />
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">This Month</p>
-                  <p className="text-2xl font-bold">{usage?.monthly || 0} MB</p>
-                  <Progress value={(usage?.monthly || 0) / 1000} className="h-2" />
+                  <p className="text-2xl font-bold">{usage?.month || 0} MB</p>
+                  <Progress value={(usage?.month || 0) / 1000} className="h-2" />
                 </div>
               </div>
               
-              {usage?.byProvider && (
+              {usage?.byProvider && Object.keys(usage.byProvider).length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Usage by Provider</p>
-                  {Object.entries(usage.byProvider).map(([provider, amount]) => (
+                  {Object.entries(usage.byProvider).map(([provider, data]: [string, any]) => (
                     <div key={provider} className="flex justify-between items-center">
                       <span className="text-sm capitalize">{provider}</span>
-                      <span className="text-sm font-medium">{amount} MB</span>
+                      <span className="text-sm font-medium">{data.usage || 0} MB</span>
                     </div>
                   ))}
                 </div>
@@ -315,11 +315,11 @@ export const DataOptimizer = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Request Timeout (seconds)</span>
                   <span className="text-sm font-medium">
-                    {optimizedSettings?.requestTimeout || 30}
+                    {(optimizedSettings as any)?.requestTimeout || 30}
                   </span>
                 </div>
                 <Slider
-                  value={[optimizedSettings?.requestTimeout || 30]}
+                  value={[(optimizedSettings as any)?.requestTimeout || 30]}
                   onValueChange={([value]) => 
                     handleSettingChange('requestTimeout', value)
                   }
@@ -333,11 +333,11 @@ export const DataOptimizer = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Max Concurrent Requests</span>
                   <span className="text-sm font-medium">
-                    {optimizedSettings?.maxConcurrentRequests || 3}
+                    {(optimizedSettings as any)?.maxConcurrentRequests || 3}
                   </span>
                 </div>
                 <Slider
-                  value={[optimizedSettings?.maxConcurrentRequests || 3]}
+                  value={[(optimizedSettings as any)?.maxConcurrentRequests || 3]}
                   onValueChange={([value]) => 
                     handleSettingChange('maxConcurrentRequests', value)
                   }

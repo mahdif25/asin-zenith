@@ -26,7 +26,7 @@ interface ExportConfig {
 }
 
 export const ExportManager = () => {
-  const { exportData, isExporting } = useExportData();
+  const { exportReport, isExporting } = useExportData();
   const { toast } = useToast();
   const [config, setConfig] = useState<ExportConfig>({
     format: 'csv',
@@ -78,27 +78,20 @@ export const ExportManager = () => {
 
   const handleExport = async () => {
     try {
-      const result = await exportData(config);
+      // Map config to the expected format for the existing hook
+      const exportOptions = {
+        reportType: config.dataTypes.includes('rankings') ? 'combined' : 'organic' as any,
+        timeframe: '30d' as any,
+        selectedAsin: 'all',
+        format: config.format === 'csv' ? 'csv' : 'pdf' as any
+      };
       
-      if (result.success) {
-        // Create download link
-        const blob = new Blob([result.data], { 
-          type: getContentType(config.format) 
-        });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `amazon-keyword-report-${format(new Date(), 'yyyy-MM-dd')}.${config.format}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        toast({
-          title: 'Export Complete',
-          description: `Report exported successfully as ${config.format.toUpperCase()}`,
-        });
-      }
+      await exportReport(exportOptions);
+      
+      toast({
+        title: 'Export Complete',
+        description: `Report exported successfully as ${config.format.toUpperCase()}`,
+      });
     } catch (error) {
       toast({
         title: 'Export Failed',
